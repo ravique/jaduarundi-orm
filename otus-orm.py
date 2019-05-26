@@ -1,5 +1,4 @@
-from db.models import Model, Field
-
+from jaguarundi.models import Model, Field
 
 # Create your models here
 

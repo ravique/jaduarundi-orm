@@ -1,3 +1,0 @@
-PRINT_REQUESTS = True
-FOREIGN_KEYS_CONTROL = False
-DB_NAME = 'orm2.db'
