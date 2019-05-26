@@ -2,8 +2,8 @@ from sqlite3 import OperationalError, IntegrityError, Row
 from collections import OrderedDict
 from typing import Optional
 
-from .config import *
-from .db_handler import connect_to_db, sql_fields_values_formatter, sql_value_formatter, sql_params_formatter
+from jaguarundi.config import *
+from jaguarundi.db_handler import connect_to_db, sql_fields_values_formatter, sql_value_formatter, sql_params_formatter
 
 
 def print_raw_request(request):
