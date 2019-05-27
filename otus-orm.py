@@ -1,5 +1,8 @@
 from jaguarundi.models import Model, Field
 
+# TODO: determine db
+
+
 # Create your models here
 
 class Colors(Model):
@@ -14,7 +17,7 @@ class Classes(Model):
 
 class Koalas(Model):
     id = Field(field_type='INTEGER', is_null=False, pk=True)
-    name = Field(field_type='VARCHAR', is_null=True, name='koala_name')
+    name = Field(field_type='VARCHAR', is_null=True)
     sex = Field(field_type='CHAR', is_null=True)
     age = Field(field_type='INT', is_null=True, )
     color = Field(field_type='INT', is_null=True, foreign_key=Colors.get_fk())
@@ -38,21 +41,23 @@ Classes.create(cl_name='first', class_type='best')
 Classes.create(cl_name='second', class_type='best2')
 # Classes().create(cl_name='third', class_type='best3')
 
-Koalas.create(koala_name='Burush', age=10, color='1', cl='2')
-Koalas.create(koala_name='Burush2', age=20, color='1', cl='3')
-Koalas.create(koala_name='Serush', age=20, id=100)
+Koalas.create(name='Burush', age=10, color='1', cl='2')
+Koalas.create(name='Burush2', age=20, color='1', cl='3')
+Koalas.create(name='Serush', age=20, id=100)
 #
 
 serush = Koalas.get(id=100)
 
 
-burush = Koalas.get(id=1)
-burush.update(koala_name='Jaguar', age=10, sex='Male')
+burush = Koalas.get(id=1, only=['name'])
+burush.update(name='Jaguar', age=10, sex='Male')
 burush.update(sex=None)
 
+non = Koalas.filter(age=1000)
 
 koalas = Koalas.all()
-
+print('\n Burush:')
+print(burush.__dict__)
 
 
 print('\n Koalas:')

@@ -1,14 +1,9 @@
 from sqlite3 import OperationalError, IntegrityError, Row
 from collections import OrderedDict
-from typing import Optional
+from typing import Optional, Union
 
-from jaguarundi.config import *
-from jaguarundi.db_handler import connect_to_db, sql_fields_values_formatter, sql_value_formatter, sql_params_formatter
-
-
-def print_raw_request(request):
-    if PRINT_REQUESTS:
-        print(request)
+from jaguarundi.db_handler import connect_to_db, sql_fields_values_formatter, \
+    sql_params_formatter, print_raw_request
 
 
 class Field:
@@ -45,7 +40,7 @@ class Model:
             setattr(self, k, v)
 
     @property
-    def self_fields(self):
+    def self_fields(self) -> list:
         fields_dict = self.__class__.__get_fields()
         if not fields_dict:
             return None
@@ -93,7 +88,6 @@ class Model:
         """
 
         connection = connect_to_db()
-
         fields = []
         foreign_keys = []
         table_name = cls.__get_table_name()
@@ -118,6 +112,7 @@ class Model:
 
         request = f'CREATE TABLE {table_name} ({", ".join(fields)});'
         print_raw_request(request)
+
         try:
             connection.cursor().execute(request)
         except OperationalError as e:
@@ -126,11 +121,13 @@ class Model:
             connection.close()
 
     @classmethod
-    def drop_table(cls):
-        connection = connect_to_db()
+    def drop_table(cls) -> None:
         table_name = cls.__get_table_name()
+
+        connection = connect_to_db()
         request = f'DROP TABLE {table_name};'
         print_raw_request(request)
+
         try:
             connection.cursor().execute(request)
         except OperationalError as e:
@@ -139,9 +136,10 @@ class Model:
             connection.close()
 
     @classmethod
-    def create(cls, **kwargs):
+    def create(cls, **kwargs) -> None:
         fields, values = sql_fields_values_formatter(**kwargs)
         table_name = cls.__get_table_name()
+
         connection = connect_to_db()
         request = f'INSERT INTO {table_name}({fields}) VALUES({values});'
         print_raw_request(request)
@@ -155,19 +153,18 @@ class Model:
             connection.close()
 
     @classmethod
-    def __db_getter(cls, **kwargs):
+    def __db_getter(cls, **kwargs) -> Optional[Union[list, object]]:
 
-        only_fields = ', '.join(kwargs.get('only', '*'))
+        only_fields_list = kwargs.get('only', None)
         kwargs.pop('only', None)
 
         request_type = kwargs.get('request_type')
         kwargs.pop('request_type', None)
 
-        connection = connect_to_db()
-        connection.row_factory = Row
-
         table_name = cls.__get_table_name()
 
+        connection = connect_to_db()
+        connection.row_factory = Row
         foreign_keys = cls.__check_fk(connection)
 
         if foreign_keys:
@@ -185,6 +182,19 @@ class Model:
             for x in range(len(to_tables)):
                 joins += f' LEFT JOIN {to_tables[x]} ON {joined_from[x]}={joined_to[x]}'
 
+            if only_fields_list:
+                table_dot_only = ['.'.join(i) for i in
+                                  list(zip([from_table] * len(only_fields_list), only_fields_list))]
+                only_fields = ', '.join(table_dot_only)
+            else:
+                only_fields = '*'
+
+        else:
+            if only_fields_list:
+                only_fields = ', '.join(only_fields_list)
+            else:
+                only_fields = '*'
+
         if request_type == 'all':
             if foreign_keys:
                 request = f'SELECT {only_fields} FROM {joins};'
@@ -200,7 +210,7 @@ class Model:
             if foreign_keys:
                 request = f'SELECT {only_fields} FROM {joins} WHERE {conditions};'
             else:
-                request = f'SELECT {only_fields} FROM {table_name} WHERE {table_name}{conditions};'
+                request = f'SELECT {only_fields} FROM {table_name} WHERE {conditions};'
 
         print_raw_request(request)
 
@@ -216,6 +226,7 @@ class Model:
                 print(f'Error: Unable to get record: more than one found')
                 connection.close()
                 return None
+
             elif not all_records:
                 print('Nothing found')
                 connection.close()
@@ -234,12 +245,7 @@ class Model:
             connection.close()
 
         if rows:
-            queryset = []
-            for row in rows:
-                attrs = dict(row)
-                queryset.append(cls(**attrs))
-
-            return queryset
+            return [cls(**dict(row)) for row in rows]
 
         return None
 
@@ -258,7 +264,11 @@ class Model:
         kwargs.update(request_type='filter')
         return cls.__db_getter(**kwargs)
 
-    def update(self, **kwargs):
+    def update(self, **kwargs) -> None:
+
+        if not isinstance(self.id, int):
+            print(f'Error: Unable to update record. Object has no id')
+            return None
 
         params = sql_params_formatter(kwargs)
 
@@ -278,7 +288,11 @@ class Model:
             self.update_me(**kwargs)
             connection.close()
 
-    def save(self):
+    def save(self) -> None:
+        if not isinstance(self.id, int):
+            print(f'Error: Unable to save object. Object has no id')
+            return None
+
         only_self_fields = {field: value for field, value in self.__dict__.items() if field in self.self_fields}
 
         params = sql_params_formatter(only_self_fields)
@@ -291,10 +305,8 @@ class Model:
         try:
             connection.cursor().execute(request)
         except OperationalError as e:
-            print(f'Error: Unable to update record: {str(e)}')
+            print(f'Error: Unable to save object: {str(e)}')
         else:
             connection.commit()
         finally:
             connection.close()
-
-
