@@ -7,7 +7,7 @@ Simple SQLite ORM for Python. Requires Python 3.6+.
 ## Install
 ### Easy install
 
-To install this script using pip (auto install, requirements will be installed automatically):
+To install this script using pip:
 ```
 $ pip install git+https://github.com/ravique/jaduarundi-orm.git
 ```
