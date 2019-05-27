@@ -26,7 +26,7 @@ You can configure Jaguarundi ORM in config.ini (must be in the same folder as yo
 
 **Config.ini Example**
 
-```
+```ini
 [DB_SETTINGS]
 
 db_name = default.db
@@ -48,13 +48,13 @@ To create your first model, import base classes:
  `from jaguarundi.models import Model, Field`
  
 To create model with fields:
-```
+```python
 class Author(Model):
     author_name = Field(field_type='VARCHAR', is_null=True) 
 ```
 
 Model has default field "id". If you want, you can override it in your model:
-```
+```python
 id = Field(field_type='INTEGER', is_null=False,
             pk=True, auto_increment=True)
 ```
@@ -62,7 +62,7 @@ id = Field(field_type='INTEGER', is_null=False,
 Jaguarundi ORM supports foreign keys (connect by model id field only). 
 To create a model with foreign key to model Author:  
 
-```
+```python 
 class Book(Model):
     book_name = Field(field_type='VARCHAR', is_null=True)
     author = Field(field_type='INT', is_null=True, foreign_key=Author.get_fk())
@@ -85,7 +85,7 @@ class Book(Model):
 `YourModel.create_table()` – drops table.  
 `YourModel.create(**params)` – inserts record into table.  
 **Example:**  
-```
+```python
 Author.create(author_name="Samuel Beckett")
 Book.create(book_name="En attendant Godot", author=1)
 ```
@@ -93,7 +93,7 @@ Book.create(book_name="En attendant Godot", author=1)
 ### Get from db
 `YourModel.get(**params)` – returns an object from db, that corresponded to the passed parameters. If no object exist, returns None. If more than one records found, prints error. Parameter "only" can be used.  
 **Example:** 
-```
+```python
 beckett = Author.get(author_name="Samuel Beckett")
 print(beckett.__dict__)
 ...
@@ -103,7 +103,7 @@ print(beckett.__dict__)
   
 `YourModel.all(**params)` – return list of all founded objects. Only parameter "only" can be used.   
 **Example:** 
-```
+```python
 authors = Author.all()
 print(authors)
 ...
@@ -112,7 +112,7 @@ print(authors)
   
 `YourModel.all(**params)` – return list of objects, filered by params. If no objects exist, returns None. Parameter "only" can be used.  
 **Example:** 
-```
+```python
 authors = Author.filer(author_name="Samuel Beckett")
 print(authors)
 ...
@@ -125,7 +125,7 @@ print(authors)
 If you want to get only necessary fields, use "only" parameter.   
 
 **Note:** If your model has foreign keys to another, "only" parameter will work only for your model fields!
-```
+```python
 beckett = Author.get(author_name="Samuel Beckett", only=['author_name'])
 print(beckett.__dict__)
 ...
@@ -137,14 +137,14 @@ print(beckett.__dict__)
 ## Working with objects
 After getting object ( .get() ) or list of objects ( .filter(), .all() ), you can work with them as with simple python objects.  
 **Example:**
-```
+```python
 beckett.authors_name = "Knut Hamsun"
 ```  
   
 `object.save()` – save object to database. Only existing columns will be rewrited.  
 `object.update(**params)` – update columns in database. Only existing columns will be rewrited. Object updates too. 
 **Example:**
-```
+```python
 beckett.update(author_name="Franz Kafka")
 print(beckett.author_name)
 ...
