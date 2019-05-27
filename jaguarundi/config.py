@@ -26,7 +26,7 @@ except configparser.Error:
 
 try:
     PRINT_REQUESTS = config.getboolean('DB_SETTINGS', 'print_sql_requests')
-except configparser.Error:
+except configparser.NoOptionError:
     PRINT_REQUESTS = True
 
 
