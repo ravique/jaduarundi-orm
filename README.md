@@ -41,7 +41,7 @@ If config.ini does not exist, Jaguarundi ORM will use default settings.
 `db_name`: Name of your database. _Default: default.db_  
 `path_to_db`: Absolute or relative path to your database. By default, Jaguarundi ORM operates with database in the same folder as your python script.  
 `print_sql_requests`: if True, script will print raw sql requests to console. Usable for debug. _Default: False_  
-`control_foreign_keys`: if True, preserves to add records to db with foreign key fields to non-existing records. _Default: True_
+`control_foreign_keys`: if True, prevents from adding records to db tables with foreign keys to non-existing records. _Default: True_
 
 ## Jaguarundi ORM Model reference
 To create your first model, import base classes:  
@@ -75,7 +75,7 @@ class Book(Model):
 `field_type` – must be in [SQLite datatypes](https://www.sqlite.org/datatype3.html).  
 `is_null` – specify whether it can be Null. _Default: False_  
 `name` – you can specify custom field name. If not specified, object name will be used.  
-`pk` – if True, field be a primary key. _Default: False_  
+`pk` – if True, field will be a primary key. _Default: False_  
 `auto_increment` – if True, field will get autoincrement. _Default: False_  
 `foreign_key` generates Foreign Key link to other model (by id field). Usage: YourModel.get_fk()
 
