@@ -65,7 +65,7 @@ To create a model with foreign key to model Author:
 ```python 
 class Book(Model):
     book_name = Field(field_type='VARCHAR', is_null=True)
-    author = Field(field_type='INT', is_null=True, foreign_key=Author.get_fk())
+    author = Field(field_type='INT', is_null=True, foreign_key=Author)
 ```
 
 **Note:** your models linked by foreign keys must have unique fields names!
@@ -74,10 +74,9 @@ class Book(Model):
 
 `field_type` – must be in [SQLite datatypes](https://www.sqlite.org/datatype3.html).  
 `is_null` – specify whether it can be Null. _Default: False_  
-`name` – you can specify custom field name. If not specified, object name will be used.  
 `pk` – if True, field will be a primary key. _Default: False_  
 `auto_increment` – if True, field will get autoincrement. _Default: False_  
-`foreign_key` generates Foreign Key link to other model (by id field). Usage: YourModel.get_fk()
+`foreign_key` generates Foreign Key link to other model (by id field).
 
 ## Supported commands
 ### Create and destroy
@@ -119,7 +118,16 @@ print(authors)
 [<__main__.Author object at 0x0000021196B78128>]
 ```
   
-**Note:** if your model has foreign field to another model, you will get another model fields too (not recursive, only first generation of links). 
+**Note:** if your model has foreign field to another model, you will get another model fields too (not recursive, only first generation of links).
+You can access to linked model fields by key <your_model_name>__<linked_model_name>.
+**Example:**
+```python
+godot = Book.get(book_name="En attendant Godot")
+print(godot.book__author)
+...
+{'author_name': 'Samuel Beckett', 'id': 1}
+
+```  
 
 #### Only fields
 If you want to get only necessary fields, use "only" parameter.   
@@ -135,7 +143,7 @@ print(beckett.__dict__)
 **Note:** if you want to get, modify, and than save your object to database, always add "id" into "only" list.
 
 ## Working with objects
-After getting object ( .get() ) or list of objects ( .filter(), .all() ), you can work with them as with simple python objects.  
+After getting object ( .get() ) or list of objects ( .filter(), .all() ), you can work with them as with simple python objects. 
 **Example:**
 ```python
 beckett.authors_name = "Knut Hamsun"

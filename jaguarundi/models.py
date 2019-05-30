@@ -1,21 +1,18 @@
 from sqlite3 import OperationalError, IntegrityError, Row
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from typing import Optional, Union
 
 from jaguarundi.db_handler import connect_to_db, sql_fields_values_formatter, \
-    sql_params_formatter, print_raw_request
+    sql_params_formatter, print_raw_request, sql_select_as
 
 
 class Field:
     def __init__(self,
-                 name: str = None,
                  field_type: str = None,
                  is_null: bool = False,
                  pk: bool = False,
                  auto_increment: bool = False,
-                 foreign_key: str = None):
-        if name:
-            self.name = name
+                 foreign_key=None):
         if not field_type and not foreign_key:
             raise TypeError('Can not create field without type')
         self.type = field_type
@@ -33,14 +30,14 @@ class Model:
     id = Field(field_type='INTEGER', is_null=False, pk=True, auto_increment=True)  # default PK field
 
     def __init__(self, **kwargs):
-        self.update_me(**kwargs)
+        self.__update_me(**kwargs)
 
-    def update_me(self, **kwargs):
+    def __update_me(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
     @property
-    def self_fields(self) -> list:
+    def self_fields(self) -> Optional[list]:
         fields_dict = self.__class__.__get_fields()
         if not fields_dict:
             return None
@@ -51,20 +48,6 @@ class Model:
             else:
                 fields.append(field_params.__dict__.get('name'))
         return fields
-
-    @classmethod
-    def __check_fk(cls, connection) -> Optional[list]:
-        pre_request = f'PRAGMA foreign_key_list({cls.__get_table_name()});'
-        resp = connection.cursor().execute(pre_request).fetchall()
-
-        if not resp:
-            return None
-
-        foreign_keys = []
-        for row in resp:
-            foreign_keys.append(dict(row))
-
-        return foreign_keys
 
     @classmethod
     def __get_fields(cls) -> dict:
@@ -78,14 +61,38 @@ class Model:
         return '_'.join((cls.__name__.lower(), 'tbl'))
 
     @classmethod
-    def get_fk(cls) -> str:
+    def __get_relations(cls) -> list:
+        """
+        :return: [(field_name, model),(field_name, model)]
+        """
+        connections = []
+        for name, field in cls.__get_fields().items():
+            if 'foreign_key' in field.__dict__.keys():
+                connections.append((name, field.__dict__['foreign_key']))
+        return connections
+
+    @classmethod
+    def __get_fk(cls) -> str:
         return f'{cls.__get_table_name()}(id)'
 
     @classmethod
+    def __get_object_from_sql(cls, attrs: dict) -> object:
+        obj_dict = defaultdict(dict)
+
+        for table__field, value in attrs.items():
+            table_name, field_name = table__field.split('__')
+
+            if table_name == cls.__get_table_name():
+                obj_dict[field_name] = value
+            else:
+                model_name = table_name.replace('_tbl', '')
+                model_to_model = '__'.join((cls.__name__.lower(), model_name))
+                obj_dict[model_to_model].update({field_name: value})
+
+        return cls(**obj_dict)
+
+    @classmethod
     def create_table(cls) -> None:
-        """
-        Creates table. If field has param 'name' -> field name == 'name', else field name = object name
-        """
 
         connection = connect_to_db()
         fields = []
@@ -95,12 +102,12 @@ class Model:
         for field_name, field_params in cls.__get_fields().items():
             field_params_dict = OrderedDict(field_params.__dict__)
 
-            if 'name' not in field_params_dict.keys():
-                field_params_dict['name'] = field_name
-                field_params_dict.move_to_end('name', last=False)
+            field_params_dict['name'] = field_name
+            field_params_dict.move_to_end('name', last=False)
 
             if 'foreign_key' in field_params_dict.keys():
-                fk_table = field_params_dict.pop('foreign_key')
+                fk_class = field_params_dict.pop('foreign_key')
+                fk_table = fk_class.__get_fk()
                 field = [value for value in field_params_dict.values() if value]
                 foreign_keys.append(f'FOREIGN KEY({field_params_dict["name"]}) REFERENCES {fk_table}')
 
@@ -161,56 +168,60 @@ class Model:
         request_type = kwargs.get('request_type')
         kwargs.pop('request_type', None)
 
-        table_name = cls.__get_table_name()
+        from_table = cls.__get_table_name()
 
         connection = connect_to_db()
         connection.row_factory = Row
-        foreign_keys = cls.__check_fk(connection)
 
-        if foreign_keys:
-            to_tables = [t['table'] for t in foreign_keys]
-            from_table = cls.__get_table_name()
+        connected_models = cls.__get_relations()
 
-            from_fields = [t['from'] for t in foreign_keys]
-            joined_from = ['.'.join(i) for i in list(zip([from_table] * len(from_fields), from_fields))]
-
-            to_fields = [i['to'] for i in foreign_keys]
-            joined_to = ['.'.join(i) for i in list(zip(to_tables, to_fields))]
-
-            joins = f'{from_table}'
-
-            for x in range(len(to_tables)):
-                joins += f' LEFT JOIN {to_tables[x]} ON {joined_from[x]}={joined_to[x]}'
-
-            if only_fields_list:
-                table_dot_only = ['.'.join(i) for i in
-                                  list(zip([from_table] * len(only_fields_list), only_fields_list))]
-                only_fields = ', '.join(table_dot_only)
-            else:
-                only_fields = '*'
-
+        if only_fields_list:
+            fields = sql_select_as(from_table, only_fields_list)
         else:
-            if only_fields_list:
-                only_fields = ', '.join(only_fields_list)
+            if connected_models:
+                to_tables = [model.__get_table_name() for _, model in connected_models]
+
+                from_fields = [name for name, _ in connected_models]
+                joined_from = ['.'.join(i) for i in list(zip([from_table] * len(from_fields), from_fields))]
+
+                to_fields = ['id'] * len(connected_models)
+                joined_to = ['.'.join(i) for i in list(zip(to_tables, to_fields))]
+
+                joins = f'{from_table}'
+
+                for x in range(len(to_tables)):
+                    joins += f' LEFT JOIN {to_tables[x]} ON {joined_from[x]}={joined_to[x]}'
+
+                self_fields = list(cls.__get_fields().keys())
+                fields = [sql_select_as(from_table, self_fields)]
+
+                for _, model in cls.__get_relations():
+                    foreign_table_name = model.__get_table_name()
+                    foreign_table_fields = list(model.__get_fields().keys())
+                    fields += [sql_select_as(foreign_table_name, foreign_table_fields)]
+
+                fields = ' ,'.join(fields)
+
             else:
-                only_fields = '*'
+                self_fields = list(cls.__get_fields().keys())
+                fields = sql_select_as(from_table, self_fields)
 
         if request_type == 'all':
-            if foreign_keys:
-                request = f'SELECT {only_fields} FROM {joins};'
+            if connected_models and not only_fields_list:
+                request = f'SELECT {fields} FROM {joins};'
             else:
-                request = f'SELECT {only_fields} FROM {table_name};'
+                request = f'SELECT {fields} FROM {from_table};'
 
         else:
             conditions = ' AND '.join(
-                ['='.join(('.'.join((table_name, str(k))), repr(v) if isinstance(v, str) else str(v)))
+                ['='.join(('.'.join((from_table, str(k))), repr(v) if isinstance(v, str) else str(v)))
                  for k, v in kwargs.items()]
             )
 
-            if foreign_keys:
-                request = f'SELECT {only_fields} FROM {joins} WHERE {conditions};'
+            if connected_models and not only_fields_list:
+                request = f'SELECT {fields} FROM {joins} WHERE {conditions};'
             else:
-                request = f'SELECT {only_fields} FROM {table_name} WHERE {conditions};'
+                request = f'SELECT {fields} FROM {from_table} WHERE {conditions};'
 
         print_raw_request(request)
 
@@ -234,7 +245,8 @@ class Model:
 
             attrs = dict(connection.cursor().execute(request).fetchone())
             connection.close()
-            return cls(**attrs)
+
+            return cls.__get_object_from_sql(attrs)
 
         try:
             rows = connection.cursor().execute(request).fetchall()
@@ -245,7 +257,7 @@ class Model:
             connection.close()
 
         if rows:
-            return [cls(**dict(row)) for row in rows]
+            return [cls.__get_object_from_sql(dict(row)) for row in rows]
 
         return None
 
@@ -285,7 +297,7 @@ class Model:
         else:
             connection.commit()
         finally:
-            self.update_me(**kwargs)
+            self.__update_me(**kwargs)
             connection.close()
 
     def save(self) -> None:

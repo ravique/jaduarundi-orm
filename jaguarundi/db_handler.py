@@ -1,5 +1,6 @@
 import os
 from sqlite3 import dbapi2
+
 from jaguarundi.config import PATH_TO_DB, FULL_PATH_TO_DB, FOREIGN_KEYS_CONTROL, PRINT_REQUESTS
 
 if not os.path.isdir(PATH_TO_DB):
@@ -41,3 +42,14 @@ def sql_params_formatter(params_dict: dict) -> str:
     return ', '.join(
         ['='.join((str(field), sql_value_formatter(value))) for field, value in params_dict.items()]
     )
+
+
+def sql_select_as(from_table: str, fields_list: list) -> str:
+    table_dot_only = ['.'.join(i) for i in
+                      list(zip([from_table] * len(fields_list), fields_list))]
+    fields_as = ['__'.join(i) for i in
+                 list(zip([from_table] * len(fields_list), fields_list))]
+    table_dot_only_fields_as = [' as '.join(i) for i in
+                                list(zip(table_dot_only, fields_as))]
+
+    return ', '.join(table_dot_only_fields_as)
