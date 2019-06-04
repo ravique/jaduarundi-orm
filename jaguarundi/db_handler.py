@@ -53,3 +53,6 @@ def sql_select_as(from_table: str, fields_list: list) -> str:
                                 list(zip(table_dot_only, fields_as))]
 
     return ', '.join(table_dot_only_fields_as)
+
+
+CONNECTION = connect_to_db()

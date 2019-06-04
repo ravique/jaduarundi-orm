@@ -2,8 +2,8 @@ from sqlite3 import OperationalError, IntegrityError, Row
 from collections import OrderedDict, defaultdict
 from typing import Optional, Union
 
-from jaguarundi.db_handler import connect_to_db, sql_fields_values_formatter, \
-    sql_params_formatter, print_raw_request, sql_select_as
+from jaguarundi.db_handler import sql_fields_values_formatter, \
+    sql_params_formatter, print_raw_request, sql_select_as, CONNECTION
 
 
 class Field:
@@ -92,9 +92,8 @@ class Model:
         return cls(**obj_dict)
 
     @classmethod
-    def create_table(cls) -> None:
+    def create_table(cls, connection=CONNECTION) -> None:
 
-        connection = connect_to_db()
         fields = []
         foreign_keys = []
         table_name = cls.__get_table_name()
@@ -124,14 +123,12 @@ class Model:
             connection.cursor().execute(request)
         except OperationalError as e:
             print(f'Error: Unable to create table {table_name}: {str(e)}')
-        finally:
-            connection.close()
+
 
     @classmethod
-    def drop_table(cls) -> None:
+    def drop_table(cls, connection=CONNECTION) -> None:
         table_name = cls.__get_table_name()
 
-        connection = connect_to_db()
         request = f'DROP TABLE {table_name};'
         print_raw_request(request)
 
@@ -139,15 +136,13 @@ class Model:
             connection.cursor().execute(request)
         except OperationalError as e:
             print(f'Error: Unable to drop table {table_name}: {str(e)}')
-        finally:
-            connection.close()
+
 
     @classmethod
-    def create(cls, **kwargs) -> None:
+    def create(cls, connection=CONNECTION, **kwargs) -> None:
         fields, values = sql_fields_values_formatter(**kwargs)
         table_name = cls.__get_table_name()
 
-        connection = connect_to_db()
         request = f'INSERT INTO {table_name}({fields}) VALUES({values});'
         print_raw_request(request)
 
@@ -156,11 +151,9 @@ class Model:
             connection.commit()
         except IntegrityError as e:
             print(f'Error: Unable to create record: {str(e)}')
-        finally:
-            connection.close()
 
     @classmethod
-    def __db_getter(cls, **kwargs) -> Optional[Union[list, object]]:
+    def __db_getter(cls, connection=CONNECTION, **kwargs) -> Optional[Union[list, object]]:
 
         only_fields_list = kwargs.get('only', None)
         kwargs.pop('only', None)
@@ -170,7 +163,6 @@ class Model:
 
         from_table = cls.__get_table_name()
 
-        connection = connect_to_db()
         connection.row_factory = Row
 
         connected_models = cls.__get_relations()
@@ -235,16 +227,13 @@ class Model:
 
             if len(all_records) > 1:
                 print(f'Error: Unable to get record: more than one found')
-                connection.close()
                 return None
 
             elif not all_records:
                 print('Nothing found')
-                connection.close()
                 return None
 
             attrs = dict(connection.cursor().execute(request).fetchone())
-            connection.close()
 
             return cls.__get_object_from_sql(attrs)
 
@@ -253,8 +242,6 @@ class Model:
         except OperationalError as e:
             print(f'Error: Unable to get: {str(e)}')
             return None
-        finally:
-            connection.close()
 
         if rows:
             return [cls.__get_object_from_sql(dict(row)) for row in rows]
@@ -276,7 +263,7 @@ class Model:
         kwargs.update(request_type='filter')
         return cls.__db_getter(**kwargs)
 
-    def update(self, **kwargs) -> None:
+    def update(self, connection=CONNECTION, **kwargs) -> None:
 
         if not isinstance(self.id, int):
             print(f'Error: Unable to update record. Object has no id')
@@ -284,7 +271,6 @@ class Model:
 
         params = sql_params_formatter(kwargs)
 
-        connection = connect_to_db()
         table_name = self.__class__.__get_table_name()
 
         request = f'UPDATE {table_name} SET {params} WHERE {table_name}.id={self.id};'
@@ -298,9 +284,8 @@ class Model:
             connection.commit()
         finally:
             self.__update_me(**kwargs)
-            connection.close()
 
-    def save(self) -> None:
+    def save(self, connection=CONNECTION) -> None:
         if not isinstance(self.id, int):
             print(f'Error: Unable to save object. Object has no id')
             return None
@@ -310,7 +295,6 @@ class Model:
         params = sql_params_formatter(only_self_fields)
         table_name = self.__class__.__get_table_name()
 
-        connection = connect_to_db()
         request = f'UPDATE {table_name} SET {params} WHERE {table_name}.id={self.id};'
         print_raw_request(request)
 
@@ -320,5 +304,3 @@ class Model:
             print(f'Error: Unable to save object: {str(e)}')
         else:
             connection.commit()
-        finally:
-            connection.close()
