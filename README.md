@@ -1,6 +1,6 @@
 # Jaguarundi ORM
 
-Simple SQLite ORM for Python. Requires Python 3.6+.
+Simple SQLite ORM for Python. Requires Python 3.6+. Doesn't support multi-threading.
 
 **<Attention!>** This module was made by mad-skilled student. Never use it in production. I said "NEVER". :) **</Attention!>**
 
@@ -8,8 +8,8 @@ Simple SQLite ORM for Python. Requires Python 3.6+.
 ### Easy install
 
 To install this script using pip:
-```
-$ pip install git+https://github.com/ravique/jaduarundi-orm.git
+```commandline
+pip install git+https://github.com/ravique/jaduarundi-orm.git
 ```
 
 ### Manual install
