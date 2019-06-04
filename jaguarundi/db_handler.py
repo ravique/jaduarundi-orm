@@ -10,10 +10,13 @@ if not os.access(PATH_TO_DB, os.W_OK):
     raise Exception(f'Error: directory {PATH_TO_DB} does is not writable')
 
 
-def connect_to_db(path: str = FULL_PATH_TO_DB) -> dbapi2:
+def connect_to_db(path: str = FULL_PATH_TO_DB, ) -> dbapi2:
     """Connects to the default database."""
+    # TODO: use isolation_level='EXCLUSIVE' for locking db on writing operations
+    # TODO: specify connection timeout
+    # TODO: check_same_thread=False for multi-thread connections
     connection = dbapi2.connect(path)
-    if FOREIGN_KEYS_CONTROL:
+    if FOREIGN_KEYS_CONTROL:  # TODO: must be only for writing operations
         connection.cursor().execute('PRAGMA foreign_keys = ON;')
     return connection
 
